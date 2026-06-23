@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Deletreo Extremo</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        button { background-color: #007bff; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; margin: 10px; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #palabraObjetivo { font-size: 28px; font-weight: bold; color: #333; margin: 20px 0; letter-spacing: 2px; }
+        #resultado { font-size: 18px; font-weight: bold; margin-top: 20px; padding: 10px; border-radius: 5px; }
+        .correcto { color: green; background-color: #e2f0d9; }
+        .incorrecto { color: red; background-color: #fce4d6; }
+        .error-alerta { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        textarea { width: 90%; height: 60px; margin-bottom: 10px; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Mi Banco de Deletreo 🗣️</h2>
+    <p>Escribe tus palabras separadas por comas:</p>
+    <textarea id="listaPalabras">casa, perro, sol, luna, agua, escuela</textarea>
+    
+    <br>
+    <button onclick="seleccionarPalabra()">🎯 Elegir Palabra al Azar</button>
+    
+    <div id="palabraObjetivo">---</div>
+    
+    <button id="btnEscuchar" onclick="iniciarReconocimiento()" disabled>🎤 Decir Deletreo</button>
+    
+    <div id="escuchado">Te escuché: <span id="textoEscuchado" style="font-style: italic; color: #555;">...</span></div>
+    <div id="resultado">Presiona el botón azul para iniciar.</div>
+</div>
+
+<script>
+    let palabraActual = "";
+    let estaEscuchando = false; 
+
+    // Inicializar motor de reconocimiento de voz
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'es-ES';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+    } else {
+        alert("Tu navegador o aplicación actual no soporta el reconocimiento de voz. Prueba con Google Chrome.");
+    }
+
+    function seleccionarPalabra() {
+        if (!recognition) return;
+
+        if (estaEscuchando) {
+            recognition.abort();
+            estaEscuchando = false;
+        }
+
+        const texto = document.getElementById("listaPalabras").value;
+        const banco = texto.split(",").map(p => p.trim().toLowerCase()).filter(p => p.length > 0);
+        
+        if(banco.length === 0) {
+            alert("Por favor, ingresa al menos una palabra.");
+            return;
+        }
+        
+        const indice = Math.floor(Math.random() * banco.length);
+        palabraActual = banco[indice];
+        
+        document.getElementById("palabraObjetivo").innerText = palabraActual.toUpperCase();
+        
+        const divResultado = document.getElementById("resultado");
+        divResultado.innerText = "¡Palabra lista! Presiona el micrófono para deletrear.";
+        divResultado.className = ""; 
+        
+        document.getElementById("textoEscuchado").innerText = "...";
+        document.getElementById("btnEscuchar").disabled = false;
+        document.getElementById("btnEscuchar").innerText = "🎤 Decir Deletreo";
+    }
+
+    function iniciarReconocimiento() {
+        if (!recognition) {
+            alert("El motor de voz no está disponible.");
+            return;
+        }
+        if (estaEscuchando) return; 
+
+        try {
+            document.getElementById("resultado").innerText = "🎙️ Escuchando... Deletrea pausadamente.";
+            document.getElementById("resultado").className = "";
+            document.getElementById("btnEscuchar").innerText = "⏳ Grabando...";
+            estaEscuchando = true;
+            
+            recognition.start();
+        } catch (e) {
+            estaEscuchando = false;
+            document.getElementById("btnEscuchar").innerText = "🎤 Decir Deletreo";
+            
+            // Muestra el problema real en la pantalla
+            const divResultado = document.getElementById("resultado");
+            divResultado.className = "error-alerta";
+            divResultado.innerHTML = `<strong>Bloqueo de Micrófono:</strong><br>Detalle técnico: ${e.name} - ${e.message}<br><br>👉 Asegúrate de dar permisos de micrófono a la app o de usar un servidor local (HTTP).`;
+        }
+    }
+
+    if (recognition) {
+        recognition.onresult = function(event) {
+            estaEscuchando = false;
+            document.getElementById("btnEscuchar").innerText = "🎤 Decir Deletreo";
+
+            let vozUsuario = event.results[transcriptIndex = 0][0].transcript.toLowerCase();
+            let deletreoLimpio = vozUsuario.replace(/[\s\.\-,]/g, "").replace(/coma/g, "");
+            
+            document.getElementById("textoEscuchado").innerText = vozUsuario;
+            const divResultado = document.getElementById("resultado");
+            
+            if (deletreoLimpio === palabraActual) {
+                divResultado.className = "correcto";
+                divResultado.innerHTML = "✅ ¡Excelente! Deletreo correcto.";
+            } else {
+                divResultado.className = "incorrecto";
+                divResultado.innerHTML = "❌ Oh no, fallaste. Inténtalo de nuevo.";
+            }
+        };
+
+        recognition.onend = function() {
+            estaEscuchando = false;
+            if (document.getElementById("btnEscuchar").innerText === "⏳ Grabando...") {
+                document.getElementById("btnEscuchar").innerText = "🎤 Decir Deletreo";
+            }
+        };
+
+        recognition.onerror = function(event) {
+            estaEscuchando = false;
+            document.getElementById("btnEscuchar").innerText = "🎤 Decir Deletreo";
+            
+            const divResultado = document.getElementById("resultado");
+            divResultado.className = "error-alerta";
+            
+            if (event.error === 'not-allowed') {
+                divResultado.innerHTML = "⚠️ Error: Permiso de micrófono denegado. Actívalo en los ajustes de tu dispositivo.";
+            } else {
+                divResultado.innerHTML = "⚠️ Error de voz: " + event.error + ". Inténtalo de nuevo.";
+            }
+        };
+    }
+</script>
+
+</body>
+</html>
+
